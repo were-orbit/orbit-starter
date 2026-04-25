@@ -1,0 +1,34 @@
+{
+  "name": "@orbit/www",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev --port 4000",
+    "build": "vite build",
+    "start": "node .output/server/index.mjs",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@orbit/ui": "*",
+    "@tailwindcss/vite": "^4.2.2",
+    "@tanstack/react-router": "^1.138.0",
+    "@tanstack/react-start": "^1.138.0",
+    "@vercel/og": "^0.10.0",
+    "algoliasearch": "^5.51.0",
+    "nitro": "^3.0.260415-beta",
+    "prism-react-renderer": "^2.4.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "tailwindcss": "^4.2.2",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.2",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.1",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.4"
+  }
+}

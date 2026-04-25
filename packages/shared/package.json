@@ -1,0 +1,26 @@
+{
+  "name": "@orbit/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./ids": "./src/ids.ts",
+    "./dto": "./src/dto.ts",
+    "./mentions": "./src/mentions.ts",
+    "./permissions": "./src/permissions.ts",
+    "./realtime": "./src/realtime.ts",
+    "./search-query": "./src/search-query.ts",
+    "./themes": "./src/themes.ts",
+    "./navigation": "./src/navigation.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "uuid": "^14.0.0"
+  },
+  "devDependencies": {
+    "typescript": "~6.0.2"
+  }
+}

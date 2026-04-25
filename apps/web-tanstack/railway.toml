@@ -1,0 +1,18 @@
+# Point the Railway service at this file (repo-root path), e.g. /apps/web-tanstack/railway.toml
+# https://docs.railway.com/deployments/monorepo
+# Build-time: VITE_API_URL, VITE_WWW_URL
+
+[build]
+watchPatterns = [
+  "package.json",
+  "package-lock.json",
+  "turbo.json",
+  "apps/web-tanstack/**",
+  "packages/shared/**",
+  "packages/ui/**",
+]
+
+buildCommand = "npm ci && npx turbo run build --filter=@orbit/web-tanstack"
+
+[deploy]
+startCommand = "npm run start --workspace=@orbit/web-tanstack"

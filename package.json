@@ -1,0 +1,40 @@
+{
+  "name": "orbit",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "npm@10.9.7",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:www": "turbo run dev --filter=@orbit/www",
+    "dev:web": "turbo run dev --filter=@orbit/web-tanstack",
+    "dev:web-tanstack": "turbo run dev --filter=@orbit/web-tanstack",
+    "dev:web-next": "turbo run dev --filter=@orbit/web-next",
+    "dev:api": "turbo run dev --filter=@orbit/api",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "prisma:generate": "turbo run prisma:generate --filter=@orbit/api",
+    "prisma:migrate": "turbo run prisma:migrate --filter=@orbit/api",
+    "prisma:reset": "turbo run prisma:reset --filter=@orbit/api",
+    "drizzle:generate": "turbo run drizzle:generate --filter=@orbit/api",
+    "drizzle:migrate": "turbo run drizzle:migrate --filter=@orbit/api",
+    "drizzle:push": "turbo run drizzle:push --filter=@orbit/api",
+    "drizzle:studio": "turbo run drizzle:studio --filter=@orbit/api",
+    "setup": "tsx scripts/setup.ts"
+  },
+  "devDependencies": {
+    "@clack/prompts": "^1.2.0",
+    "@testcontainers/postgresql": "^11.14.0",
+    "@types/node": "^24.12.2",
+    "@types/pg": "^8.20.0",
+    "pg": "^8.20.0",
+    "tsx": "^4.19.2",
+    "turbo": "^2.9.6",
+    "typescript": "~6.0.2"
+  }
+}

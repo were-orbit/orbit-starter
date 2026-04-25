@@ -1,0 +1,44 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "dev": {
+      "cache": false,
+      "persistent": true
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["VITE_*"],
+      "outputs": ["dist/**", ".output/**", "build/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "outputs": []
+    },
+    "lint": {
+      "outputs": []
+    },
+    "prisma:generate": {
+      "outputs": []
+    },
+    "prisma:migrate": {
+      "outputs": []
+    },
+    "prisma:reset": {
+      "outputs": []
+    },
+    "drizzle:generate": {
+      "outputs": []
+    },
+    "drizzle:migrate": {
+      "cache": false
+    },
+    "drizzle:push": {
+      "cache": false
+    },
+    "drizzle:studio": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

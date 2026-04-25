@@ -1,0 +1,138 @@
+# Self-hosted / local production-like runtime for the Orbit monorepo.
+# Mirrors the three services defined in apps/*/railway.toml.
+#
+# Database is intentionally NOT included — point DATABASE_URL at an external
+# Postgres via apps/api/.env or the shell env.
+#
+# Quick start:
+#   cp apps/api/.env.example apps/api/.env   # set DATABASE_URL + BETTER_AUTH_SECRET
+#   docker compose up --build
+#
+# The `api-migrate` service runs `prisma migrate deploy` once and exits;
+# `api` waits for it via depends_on.condition=service_completed_successfully.
+# `web`/`www` wait for `api` to pass its healthcheck before booting.
+#
+# Override public URLs at build time (baked into the client bundle):
+#   PUBLIC_API_URL=https://api.example.com \
+#   PUBLIC_WEB_URL=https://app.example.com \
+#   PUBLIC_WWW_URL=https://example.com \
+#     docker compose build
+
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 5s
+  retries: 3
+  start_period: 30s
+
+services:
+  # --- local dev database (opt-in) ---------------------------------------------
+  # Not started by default — use `docker compose --profile dev up -d postgres`
+  # or `npm run setup` (which handles this for you).
+  postgres:
+    profiles: ["dev"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: orbit
+    ports:
+      - "5432:5432"
+    volumes:
+      - orbit-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # --- one-shot migration runner ---------------------------------------------
+  api-migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: migrate
+    image: orbit-api-migrate
+    env_file:
+      - ./apps/api/.env
+    restart: "no"
+
+  # --- API -------------------------------------------------------------------
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    image: orbit-api
+    env_file:
+      - ./apps/api/.env
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "4002"
+    ports:
+      - "${API_PORT:-4002}:4002"
+    depends_on:
+      api-migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      <<: *healthcheck-defaults
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4002/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    restart: unless-stopped
+
+  # --- WEB (TanStack Start SSR) ----------------------------------------------
+  web:
+    build:
+      context: .
+      dockerfile: apps/web-tanstack/Dockerfile
+      args:
+        VITE_API_URL: ${PUBLIC_API_URL:-http://localhost:4002}
+        VITE_WWW_URL: ${PUBLIC_WWW_URL:-http://localhost:4000}
+    image: orbit-web
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "4001"
+    ports:
+      - "${WEB_PORT:-4001}:4001"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      <<: *healthcheck-defaults
+      start_period: 20s
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4001/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    restart: unless-stopped
+
+  # --- WWW (TanStack Start SSR, marketing) -----------------------------------
+  www:
+    build:
+      context: .
+      dockerfile: apps/www/Dockerfile
+      args:
+        VITE_WEB_URL: ${PUBLIC_WEB_URL:-http://localhost:4001}
+    image: orbit-www
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "4000"
+    ports:
+      - "${WWW_PORT:-4000}:4000"
+    healthcheck:
+      <<: *healthcheck-defaults
+      start_period: 20s
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4000/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+    restart: unless-stopped
+
+volumes:
+  orbit-postgres-data:

@@ -1,0 +1,762 @@
+{
+  "$schema": "./features.schema.json",
+  "version": 1,
+  "description": "Declarative manifest of optional features in the Orbit SaaS starter kit. The generator CLI reads this to know which files to delete and which fenced regions to strip when a user opts out of a feature.",
+
+  "fenceMarker": {
+    "open": "// +feature:{name}",
+    "close": "// -feature:{name}",
+    "notes": [
+      "Fences live inline in source files and are removed by the generator.",
+      "The strip engine auto-walks the whole repo looking for fences — the `fencedRegions` arrays below are advisory documentation only, not a whitelist.",
+      "Three fence syntaxes are accepted so markers work in TS/TSX, Prisma, and JSX: `// +feature:<name>`, `/* +feature:<name> */`, `{/* +feature:<name> */}`."
+    ]
+  },
+
+  "features": {
+    "teams": {
+      "name": "teams",
+      "tier": "paid",
+      "label": "Teams + per-team PBAC",
+      "description": "A second PBAC scope nested inside a workspace. Users can be grouped into teams and granted team-scoped roles (TEAM_ADMIN / TEAM_MEMBER + custom).",
+      "defaultEnabled": true,
+      "requires": [],
+      "files": [
+        "apps/api/src/teams/",
+        "apps/api/src/interfaces/http/controllers/teams.controller.ts",
+        "apps/web-tanstack/src/pages/workspace-teams/",
+        "apps/web-tanstack/src/routes/d/$workspaceSlug/teams.tsx",
+        "apps/web-next/src/views/workspace-teams/",
+        "apps/web-next/app/d/[workspaceSlug]/teams/"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/interfaces/http/router.ts",
+        "apps/api/src/interfaces/mappers.ts",
+        "apps/api/src/infrastructure/prisma-uow.ts",
+        "apps/api/src/kernel/uow.ts",
+        "apps/api/src/realtime/realtime-event-publisher.ts",
+        "apps/api/prisma/schema.prisma",
+        "packages/shared/src/dto.ts",
+        "packages/shared/src/permissions.ts",
+        "packages/shared/src/realtime.ts",
+        "apps/web-tanstack/src/pages/workspace-settings/section-page.tsx",
+        "apps/web-tanstack/src/routes/d/$workspaceSlug/workspace/settings/$section.tsx",
+        "apps/web-tanstack/src/components/workspace-settings/workspace-settings-shell.tsx",
+        "apps/web-next/src/views/workspace-settings/section-page.tsx",
+        "apps/web-next/src/components/workspace-settings/workspace-settings-shell.tsx",
+        "apps/web-next/app/d/[workspaceSlug]/workspace/settings/[section]/page.tsx"
+      ]
+    },
+
+    "billing": {
+      "name": "billing",
+      "tier": "paid",
+      "label": "Billing (subscriptions + webhooks)",
+      "description": "Subscriptions via a `BillingProvider` port. Ships with Stripe, Polar, and Dodo Payments adapters. Webhooks are signature-verified per provider. When disabled, `BILLING_PROVIDER` env goes away and `/billing/*` routes are removed.",
+      "defaultEnabled": true,
+      "requires": [],
+      "options": {
+        "provider": {
+          "label": "Which billing provider?",
+          "choices": ["stripe", "polar", "dodo"],
+          "default": "stripe",
+          "notes": "Choosing one provider enables its `billing-<provider>` sub-feature and strips the others. Pick 'stripe' for US-first SaaS, 'polar' if you want merchant-of-record + indie-friendly pricing, 'dodo' if you want merchant-of-record in a Stainless-generated SDK."
+        }
+      },
+      "files": [
+        "apps/api/src/billing/",
+        "apps/api/src/interfaces/http/controllers/billing.controller.ts",
+        "apps/web-tanstack/src/pages/workspace-billing/",
+        "apps/web-tanstack/src/routes/d/$workspaceSlug/billing.tsx",
+        "apps/web-next/src/views/workspace-billing/",
+        "apps/web-next/app/d/[workspaceSlug]/billing/",
+        "apps/webhook-tunnel/",
+        "docs/billing-providers.md",
+        ".agents/skills/add-billing-provider/"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/interfaces/http/router.ts",
+        "apps/api/src/interfaces/http/controllers/config.controller.ts",
+        "apps/api/src/interfaces/mappers.ts",
+        "apps/api/src/infrastructure/prisma-uow.ts",
+        "apps/api/src/kernel/uow.ts",
+        "apps/api/src/realtime/realtime-event-publisher.ts",
+        "apps/api/prisma/schema.prisma",
+        "packages/shared/src/dto.ts",
+        "packages/shared/src/permissions.ts",
+        "packages/shared/src/realtime.ts",
+        "apps/web-tanstack/src/pages/workspace-settings/section-page.tsx",
+        "apps/web-tanstack/src/routes/d/$workspaceSlug/workspace/settings/$section.tsx",
+        "apps/web-tanstack/src/components/workspace-settings/workspace-settings-shell.tsx",
+        "apps/web-next/src/views/workspace-settings/section-page.tsx",
+        "apps/web-next/src/components/workspace-settings/workspace-settings-shell.tsx",
+        "apps/web-next/app/d/[workspaceSlug]/workspace/settings/[section]/page.tsx"
+      ],
+      "envKeys": [
+        "BILLING_PROVIDER",
+        "BILLING_PLANS_JSON",
+        "SMEE_URL",
+        "SMEE_TARGET_PATH"
+      ]
+    },
+
+    "billing-stripe": {
+      "name": "billing-stripe",
+      "tier": "paid",
+      "label": "Billing: Stripe adapter",
+      "description": "Stripe adapter for the `BillingProvider` port (checkout, customer portal, subscription webhooks). Enabled by default when `billing` is on; the CLI translates the chosen provider into this sub-feature. Requires the parent `billing` feature.",
+      "defaultEnabled": true,
+      "requires": ["billing"],
+      "files": [
+        "apps/api/src/billing/infrastructure/stripe-billing-provider.ts",
+        "apps/api/src/billing/infrastructure/stripe-webhook-receiver.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/billing/feature.ts",
+        "apps/api/src/composition.ts"
+      ],
+      "envKeys": ["STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET"]
+    },
+
+    "billing-polar": {
+      "name": "billing-polar",
+      "tier": "paid",
+      "label": "Billing: Polar adapter",
+      "description": "Polar.sh adapter for the `BillingProvider` port (hosted checkout, customer sessions, Standard-Webhooks subscription events). Requires the parent `billing` feature. Polar is merchant-of-record.",
+      "defaultEnabled": false,
+      "requires": ["billing"],
+      "files": [
+        "apps/api/src/billing/infrastructure/polar-billing-provider.ts",
+        "apps/api/src/billing/infrastructure/polar-webhook-receiver.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/billing/feature.ts",
+        "apps/api/src/composition.ts"
+      ],
+      "envKeys": [
+        "POLAR_ACCESS_TOKEN",
+        "POLAR_WEBHOOK_SECRET",
+        "POLAR_SERVER"
+      ]
+    },
+
+    "billing-dodo": {
+      "name": "billing-dodo",
+      "tier": "paid",
+      "label": "Billing: Dodo Payments adapter",
+      "description": "Dodo Payments adapter for the `BillingProvider` port (checkout sessions, customer portal, Standard-Webhooks subscription events). Requires the parent `billing` feature. Dodo is merchant-of-record with a Stainless-generated TypeScript SDK.",
+      "defaultEnabled": false,
+      "requires": ["billing"],
+      "files": [
+        "apps/api/src/billing/infrastructure/dodo-billing-provider.ts",
+        "apps/api/src/billing/infrastructure/dodo-webhook-receiver.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/billing/feature.ts",
+        "apps/api/src/composition.ts"
+      ],
+      "envKeys": [
+        "DODO_PAYMENTS_API_KEY",
+        "DODO_PAYMENTS_WEBHOOK_KEY",
+        "DODO_PAYMENTS_ENVIRONMENT"
+      ]
+    },
+
+    "uploads": {
+      "name": "uploads",
+      "tier": "paid",
+      "label": "File uploads (UploadThing)",
+      "description": "File storage via UploadThing (avatars, images). When off, the `/uploads/*` routes are removed and `fileStorage` falls back to a noop.",
+      "defaultEnabled": true,
+      "requires": [],
+      "files": [
+        "apps/api/src/uploads/",
+        "apps/api/src/interfaces/http/controllers/uploads.controller.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/interfaces/http/router.ts"
+      ],
+      "envKeys": ["UPLOADTHING_TOKEN"]
+    },
+
+    "waitlist": {
+      "name": "waitlist",
+      "tier": "paid",
+      "label": "Waitlist / private beta",
+      "description": "A private-beta gating flow: public can request access, only admin-accepted emails can sign up. When off, the waitlist table and routes are removed and `IS_WAITLIST_ENABLED` is hardcoded false. Requires `auth-magic-link` because the post-acceptance flow sends a magic link to complete sign-in.",
+      "defaultEnabled": false,
+      "requires": ["auth-magic-link"],
+      "files": [
+        "apps/api/src/waitlist/",
+        "apps/api/src/identity/assert-waitlist-allows-new-user.ts",
+        "apps/api/src/interfaces/http/controllers/waitlist.controller.ts",
+        "apps/api/src/interfaces/http/controllers/onboarding.controller.ts",
+        "apps/web-tanstack/src/pages/onboarding.tsx",
+        "apps/web-tanstack/src/pages/request-access.tsx",
+        "apps/web-tanstack/src/routes/onboarding.tsx",
+        "apps/web-tanstack/src/routes/_auth.request-access.tsx",
+        "apps/web-tanstack/src/lib/queries/onboarding.ts",
+        "apps/web-next/src/views/onboarding.tsx",
+        "apps/web-next/src/views/request-access.tsx",
+        "apps/web-next/app/onboarding/",
+        "apps/web-next/app/(auth)/request-access/",
+        "apps/web-next/src/lib/queries/onboarding.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/interfaces/http/router.ts",
+        "apps/api/src/interfaces/http/controllers/config.controller.ts",
+        "apps/api/src/interfaces/http/better-auth.ts",
+        "apps/api/prisma/schema.prisma",
+        "packages/shared/src/dto.ts",
+        "apps/web-next/src/views/login.tsx"
+      ],
+      "envKeys": ["IS_WAITLIST_ENABLED", "WAITLIST_ADMIN_SECRET"]
+    },
+
+    "realtime": {
+      "name": "realtime",
+      "tier": "free",
+      "label": "Realtime (WebSocket + presence)",
+      "description": "In-process pub-sub hub, presence tracker, event publisher, and `/v1/ws` WebSocket endpoint. When off, the whole realtime stack is removed: no live member updates, no typing/presence indicators, no `connectRealtime` client.",
+      "defaultEnabled": true,
+      "requires": [],
+      "files": [
+        "apps/api/src/realtime/",
+        "apps/api/src/interfaces/ws/",
+        "apps/web-tanstack/src/lib/db/realtime.ts",
+        "apps/web-next/src/lib/db/realtime.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/index.ts",
+        "apps/api/src/composition.ts",
+        "apps/api/src/kernel/feature.ts",
+        "apps/web-tanstack/src/lib/db/provider.tsx",
+        "apps/web-tanstack/src/lib/db/hydrate.ts",
+        "apps/web-tanstack/src/lib/stores/workspace-stores.ts",
+        "apps/web-tanstack/src/lib/urls.ts",
+        "apps/web-tanstack/src/routes/__root.tsx",
+        "apps/web-next/src/lib/db/provider.tsx",
+        "apps/web-next/src/lib/db/hydrate.ts",
+        "apps/web-next/src/lib/stores/workspace-stores.ts",
+        "apps/web-next/src/env.ts",
+        "apps/web-next/app/providers.tsx"
+      ],
+      "envKeys": []
+    },
+
+    "email-resend": {
+      "name": "email-resend",
+      "tier": "paid",
+      "label": "Resend email adapter",
+      "description": "Transactional emails (magic links, workspace invites) via Resend + react-email. When off, a `ConsoleMailer` logs emails to stdout — useful for local dev or SaaS variants that ship without SMTP configured.",
+      "defaultEnabled": true,
+      "requires": [],
+      "files": [
+        "apps/api/src/infrastructure/resend-mailer.tsx",
+        "apps/api/src/emails/"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts"
+      ],
+      "envKeys": ["RESEND_API_KEY", "RESEND_FROM", "RESEND_SEND_IN_DEV"]
+    },
+
+    "jobs": {
+      "name": "jobs",
+      "tier": "paid",
+      "label": "Background jobs + cron",
+      "description": "Provider-neutral `JobQueue` + `JobRuntime` ports. Services enqueue work without knowing which adapter is wired underneath. Ships with graphile-worker (Postgres-backed) and Upstash QStash (managed HTTP) adapters. When disabled, services that would have enqueued work must run inline and no worker process boots.",
+      "defaultEnabled": true,
+      "requires": [],
+      "options": {
+        "provider": {
+          "label": "Which jobs provider?",
+          "choices": ["graphile", "qstash"],
+          "default": "graphile",
+          "notes": "Choosing a provider enables its `jobs-<provider>` sub-feature and strips the others. Pick 'graphile' for self-hosted Postgres-backed queues with cron; pick 'qstash' for a managed HTTP queue that deploys well on Vercel / Cloudflare Workers."
+        }
+      },
+      "files": [
+        "apps/api/src/jobs/",
+        "docs/jobs-providers.md"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/kernel/feature.ts",
+        "apps/api/src/index.ts",
+        "apps/api/src/interfaces/http/router.ts"
+      ],
+      "envKeys": ["JOBS_PROVIDER", "JOBS_CONCURRENCY"]
+    },
+
+    "jobs-graphile": {
+      "name": "jobs-graphile",
+      "tier": "paid",
+      "label": "Jobs: graphile-worker adapter",
+      "description": "graphile-worker adapter for the `JobQueue` + `JobRuntime` ports. Postgres-backed queue with `LISTEN`/`NOTIFY` dispatch, crontab scheduling, retries with exponential backoff, and a `graphile_worker.jobs` observability table. Requires the parent `jobs` feature.",
+      "defaultEnabled": true,
+      "requires": ["jobs"],
+      "files": [
+        "apps/api/src/jobs/infrastructure/graphile-job-queue.ts",
+        "apps/api/src/jobs/infrastructure/graphile-job-runtime.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/jobs/feature.ts",
+        "apps/api/src/composition.ts"
+      ],
+      "envKeys": ["WORKER_DATABASE_URL"]
+    },
+
+    "rate-limit": {
+      "name": "rate-limit",
+      "tier": "paid",
+      "label": "Rate limiting",
+      "description": "A `RateLimiter` port with in-memory (dev) and Upstash Redis (prod) adapters, plus a Hono middleware that guards the auth + waitlist surface with per-IP and per-email limiters. When disabled, the port, middleware, adapters, and limiter wiring on routes are all removed — including the demo-start limiter, which uses the same port.",
+      "defaultEnabled": true,
+      "requires": [],
+      "options": {
+        "provider": {
+          "label": "Which rate-limit provider?",
+          "choices": ["memory", "upstash", "unkey"],
+          "default": "memory",
+          "notes": "Choosing a provider enables its `rate-limit-<provider>` sub-feature and strips the others. Pick 'memory' for dev + single-instance deploys (state is not shared across workers). Pick 'upstash' for production with self-hosted infra (Redis-backed, generic). Pick 'unkey' if you also want per-API-key quotas and a managed dashboard — Unkey positions itself as a global rate-limiting + API-key product."
+        }
+      },
+      "files": [
+        "apps/api/src/kernel/rate-limiter.ts",
+        "apps/api/src/infrastructure/rate-limiters/",
+        "apps/api/src/interfaces/http/middleware/rate-limit.ts",
+        "apps/www/src/pages/docs/integrations/rate-limiting.tsx",
+        "apps/www/src/routes/docs.integrations.rate-limiting.tsx"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/kernel/feature.ts",
+        "apps/api/src/app.ts",
+        "apps/api/src/interfaces/http/controllers/demo.controller.ts"
+      ],
+      "envKeys": ["RATE_LIMIT_PROVIDER"]
+    },
+
+    "rate-limit-upstash": {
+      "name": "rate-limit-upstash",
+      "tier": "paid",
+      "label": "Rate limiting: Upstash adapter",
+      "description": "Upstash Redis adapter for the `RateLimiter` port. Uses `@upstash/ratelimit`'s sliding-window algorithm with a shared `Redis` client; fails open on Redis error so an Upstash outage cannot take the auth surface down. Requires the parent `rate-limit` feature.",
+      "defaultEnabled": false,
+      "requires": ["rate-limit"],
+      "files": [
+        "apps/api/src/infrastructure/rate-limiters/upstash-rate-limiter.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts"
+      ],
+      "envKeys": ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"]
+    },
+
+    "rate-limit-unkey": {
+      "name": "rate-limit-unkey",
+      "tier": "paid",
+      "label": "Rate limiting: Unkey adapter",
+      "description": "Unkey adapter for the `RateLimiter` port. Uses `@unkey/ratelimit` with a namespace per `(limit, duration)` shape; fails open on network error so an Unkey outage cannot take the auth surface down. Pair this with Unkey's API-key product when you ship public API keys. Requires the parent `rate-limit` feature.",
+      "defaultEnabled": false,
+      "requires": ["rate-limit"],
+      "files": [
+        "apps/api/src/infrastructure/rate-limiters/unkey-rate-limiter.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts"
+      ],
+      "envKeys": ["UNKEY_ROOT_KEY", "UNKEY_RATELIMIT_NAMESPACE"]
+    },
+
+    "jobs-qstash": {
+      "name": "jobs-qstash",
+      "tier": "paid",
+      "label": "Jobs: Upstash QStash adapter",
+      "description": "Upstash QStash adapter for the `JobQueue` + `JobRuntime` ports plus a `JobDispatcher` that runs inside the `/v1/jobs/run/:name` HTTP route. No worker process — QStash posts back to this API, so the kit deploys cleanly on serverless runtimes (Vercel, Cloudflare Workers). Requires the parent `jobs` feature.",
+      "defaultEnabled": false,
+      "requires": ["jobs"],
+      "files": [
+        "apps/api/src/jobs/infrastructure/qstash-job-queue.ts",
+        "apps/api/src/jobs/infrastructure/qstash-job-runtime.ts",
+        "apps/api/src/jobs/infrastructure/qstash-job-dispatcher.ts",
+        "apps/api/src/interfaces/http/controllers/jobs.controller.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/jobs/feature.ts",
+        "apps/api/src/composition.ts",
+        "apps/api/src/interfaces/http/router.ts"
+      ],
+      "envKeys": [
+        "QSTASH_TOKEN",
+        "QSTASH_CURRENT_SIGNING_KEY",
+        "QSTASH_NEXT_SIGNING_KEY",
+        "QSTASH_CALLBACK_URL"
+      ]
+    },
+
+    "frontend": {
+      "name": "frontend",
+      "tier": "free",
+      "label": "Frontend (web app)",
+      "description": "The authenticated web app. Ships two sibling implementations — `apps/web-tanstack` (TanStack Start + Vite) and `apps/web-next` (Next 16 App Router). They hit the same Hono API and share the same `@orbit/ui` primitives + `@orbit/shared` DTOs, but the per-page code is intentionally duplicated so each uses its framework idiomatically. Pick one; the CLI deletes the other.",
+      "defaultEnabled": true,
+      "requires": [],
+      "options": {
+        "framework": {
+          "label": "Which web framework?",
+          "choices": ["tanstack", "next"],
+          "default": "tanstack",
+          "notes": "Choosing a framework enables its `frontend-<framework>` sub-feature and strips the other. Pick 'tanstack' for TanStack Start + Vite + TanStack Router (typed file-based routing, great DX, SSR-ready). Pick 'next' for Next 16 App Router (mainstream ecosystem, easiest deploy on Vercel)."
+        }
+      },
+      "files": [],
+      "fencedRegions": [],
+      "envKeys": []
+    },
+
+    "frontend-tanstack": {
+      "name": "frontend-tanstack",
+      "tier": "free",
+      "label": "Frontend: TanStack Start app",
+      "description": "The `apps/web-tanstack` app (TanStack Start + Vite, port 4001). Enabled by default when `frontend` is on; the CLI translates the chosen framework into this sub-feature. Requires the parent `frontend` feature. When disabled, the entire `apps/web-tanstack/` folder is deleted and the `dev:web` root script is repointed at the surviving sibling.",
+      "defaultEnabled": true,
+      "requires": ["frontend"],
+      "files": [
+        "apps/web-tanstack/"
+      ],
+      "fencedRegions": [],
+      "envKeys": []
+    },
+
+    "frontend-next": {
+      "name": "frontend-next",
+      "tier": "free",
+      "label": "Frontend: Next 16 App Router app",
+      "description": "The `apps/web-next` app (Next 16 App Router, port 4003). Requires the parent `frontend` feature. When disabled, the entire `apps/web-next/` folder is deleted.",
+      "defaultEnabled": false,
+      "requires": ["frontend"],
+      "files": [
+        "apps/web-next/"
+      ],
+      "fencedRegions": [],
+      "envKeys": []
+    },
+
+    "auth-magic-link": {
+      "name": "auth-magic-link",
+      "tier": "free",
+      "label": "Magic-link auth (passwordless email)",
+      "description": "Passwordless sign-in via better-auth's `magicLink` plugin. The server sends a one-time link through the `Mailer` port; in dev the last-sent link is cached and exposed at `/v1/dev/last-magic-link` so you can click through without an inbox. When off, the plugin, the dev endpoint, the client plugin, the `MagicLinkEmail` mailer method, and the magic-link form on `/login` are all removed — at least one of `auth-magic-link` or `auth-password` must be enabled for sign-in to work.",
+      "defaultEnabled": true,
+      "requires": [],
+      "files": [],
+      "fencedRegions": [
+        "apps/api/src/interfaces/http/better-auth.ts",
+        "apps/api/src/interfaces/http/controllers/dev.controller.ts",
+        "apps/api/src/infrastructure/mailer.ts",
+        "apps/api/src/composition.ts",
+        "apps/web-tanstack/src/lib/auth-client.ts",
+        "apps/web-tanstack/src/lib/mutations.ts",
+        "apps/web-tanstack/src/lib/api/client.ts",
+        "apps/web-tanstack/src/pages/login.tsx",
+        "apps/web-next/src/lib/auth-client.ts",
+        "apps/web-next/src/lib/mutations.ts",
+        "apps/web-next/src/lib/api/client.ts",
+        "apps/web-next/src/views/login.tsx"
+      ],
+      "envKeys": ["MAGIC_LINK_TTL_MIN"]
+    },
+
+    "auth-password": {
+      "name": "auth-password",
+      "tier": "free",
+      "label": "Email + password auth",
+      "description": "Email-and-password sign-in and sign-up via better-auth's built-in `emailAndPassword` strategy. Adds a password form on `/login` (with a signin/signup toggle) alongside any other auth methods. Password hashes are stored on the existing `accounts.password` column — no schema change required. When off, the config flag and the password form are both removed. At least one of `auth-password` or `auth-magic-link` must be enabled.",
+      "defaultEnabled": false,
+      "requires": [],
+      "files": [],
+      "fencedRegions": [
+        "apps/api/src/interfaces/http/better-auth.ts",
+        "apps/web-tanstack/src/lib/mutations.ts",
+        "apps/web-tanstack/src/pages/login.tsx",
+        "apps/web-next/src/lib/mutations.ts",
+        "apps/web-next/src/views/login.tsx"
+      ],
+      "envKeys": []
+    },
+
+    "auth-admin": {
+      "name": "auth-admin",
+      "tier": "free",
+      "label": "App-level admin (better-auth admin plugin)",
+      "description": "Enables the better-auth `admin` plugin — adds app-wide `role` (admin/user), `banned`, `banReason`, `banExpires` columns on users and an `impersonatedBy` column on sessions, plus the admin endpoints (listUsers, setRole, banUser, impersonate). In dev, a `/v1/dev/make-admin` endpoint lets the current user self-promote so the plugin is usable without manual DB edits. When off, the plugin and its columns are removed.",
+      "defaultEnabled": true,
+      "requires": [],
+      "files": [
+        "apps/api/prisma/migrations/20260423120000_auth_admin/",
+        "apps/api/src/identity/domain/app-admin-events.ts",
+        "apps/web-tanstack/src/pages/banned.tsx",
+        "apps/web-tanstack/src/routes/banned.tsx",
+        "apps/web-tanstack/src/lib/banned-error.ts",
+        "apps/web-next/src/views/banned.tsx",
+        "apps/web-next/app/banned/",
+        "apps/web-next/src/lib/banned-error.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/app.ts",
+        "apps/api/src/interfaces/http/better-auth.ts",
+        "apps/api/src/interfaces/http/controllers/dev.controller.ts",
+        "apps/api/prisma/schema.prisma",
+        "apps/web-tanstack/src/lib/auth-client.ts",
+        "apps/web-tanstack/src/lib/api/client.ts",
+        "apps/web-tanstack/src/pages/dev-page.tsx",
+        "apps/web-tanstack/src/pages/login.tsx",
+        "apps/web-tanstack/src/routes/_auth.login.tsx",
+        "apps/web-next/src/lib/auth-client.ts",
+        "apps/web-next/src/lib/api/client.ts",
+        "apps/web-next/src/views/dev-page.tsx",
+        "apps/web-next/src/views/login.tsx",
+        "apps/web-next/app/(auth)/login/page.tsx"
+      ],
+      "envKeys": []
+    },
+
+    "demo": {
+      "name": "demo",
+      "tier": "paid",
+      "label": "Demo mode (Orbit marketing site only)",
+      "description": "The self-expiring demo workspace behind `POST /v1/demo/start` on the Orbit marketing deploy. Not shipped to customers: the CLI always strips it, and the public starter build does too (it's tagged `paid` so `scripts/build-starter.ts` removes it). Present in the monorepo because wereorbit.com itself boots with DEMO_ENABLED=true so prospects can click through a hydrated workspace without signing up.",
+      "defaultEnabled": false,
+      "requires": [],
+      "files": [
+        "apps/api/src/demo/",
+        "apps/api/src/interfaces/http/controllers/demo.controller.ts",
+        "apps/web-tanstack/src/components/demo-banner.tsx",
+        "apps/web-tanstack/src/pages/demo-expired.tsx",
+        "apps/web-tanstack/src/routes/demo-expired.tsx"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/kernel/uow.ts",
+        "apps/api/src/infrastructure/prisma-uow.ts",
+        "apps/api/src/infrastructure/drizzle-uow.ts",
+        "apps/api/src/jobs/feature.ts",
+        "apps/api/src/interfaces/http/router.ts",
+        "apps/api/src/interfaces/mappers.ts",
+        "apps/api/src/interfaces/http/controllers/auth.controller.ts",
+        "apps/api/prisma/schema.prisma",
+        "apps/api/src/db/drizzle/schema.ts",
+        "packages/shared/src/dto.ts",
+        "apps/www/src/components/site-header.tsx",
+        "apps/www/src/pages/landing.tsx",
+        "apps/www/src/lib/urls.ts",
+        "apps/web-tanstack/src/lib/queries/session.ts",
+        "apps/web-tanstack/src/lib/api/client.ts",
+        "apps/web-tanstack/src/routes/d/$workspaceSlug.tsx"
+      ],
+      "envKeys": [
+        "DEMO_ENABLED",
+        "DEMO_TTL_HOURS",
+        "DEMO_RATE_LIMIT_PER_HOUR",
+        "DEMO_BILLING_PLAN_KEY"
+      ]
+    },
+
+    "orm": {
+      "name": "orm",
+      "tier": "free",
+      "label": "ORM",
+      "description": "Database access layer. The parent feature is always on (every project needs an ORM). The provider select picks exactly ONE of the sub-features — `orm-prisma` (free, default) or `orm-drizzle` (paid). Selecting one strips the other.",
+      "defaultEnabled": true,
+      "requires": [],
+      "options": {
+        "provider": {
+          "label": "Which ORM?",
+          "choices": ["prisma", "drizzle"],
+          "default": "prisma",
+          "notes": "Pick 'prisma' for the default free track — DMMF-driven client, excellent type safety, great migrations story. Pick 'drizzle' (paid) for a SQL-first API, smaller runtime, and composable query builders. When 'drizzle' is selected, the Prisma schema stays the source of truth; a generator emits the Drizzle schema on `npm run prisma:generate` so columns are only defined once."
+        }
+      },
+      "files": [],
+      "fencedRegions": [],
+      "envKeys": []
+    },
+
+    "orm-prisma": {
+      "name": "orm-prisma",
+      "tier": "free",
+      "label": "ORM: Prisma adapter",
+      "description": "Prisma ORM track. Ships `apps/api/prisma/` + generated client + `Prisma*Repository` implementations + `PrismaUnitOfWork`. Auth uses `@better-auth/prisma-adapter`. Enabled by default when `orm.provider=prisma`.",
+      "defaultEnabled": true,
+      "requires": ["orm"],
+      "files": [
+        "apps/api/prisma/",
+        "apps/api/src/generated/prisma/",
+        "apps/api/src/infrastructure/prisma.ts",
+        "apps/api/src/infrastructure/prisma-uow.ts",
+        "apps/api/src/identity/infrastructure/prisma-user.repository.ts",
+        "apps/api/src/workspaces/infrastructure/prisma-workspace.repository.ts",
+        "apps/api/src/workspaces/infrastructure/prisma-workspace-member.repository.ts",
+        "apps/api/src/workspaces/infrastructure/prisma-workspace-role.repository.ts",
+        "apps/api/src/workspaces/infrastructure/prisma-invite.repository.ts",
+        "apps/api/src/teams/infrastructure/prisma-team.repository.ts",
+        "apps/api/src/teams/infrastructure/prisma-team-member.repository.ts",
+        "apps/api/src/teams/infrastructure/prisma-team-role.repository.ts",
+        "apps/api/src/billing/infrastructure/prisma-billing-customer.repository.ts",
+        "apps/api/src/billing/infrastructure/prisma-subscription.repository.ts",
+        "apps/api/src/billing/infrastructure/prisma-billing-event.repository.ts",
+        "apps/api/src/demo/infrastructure/prisma-demo.repository.ts",
+        "apps/api/src/waitlist/infrastructure/prisma-waitlist.repository.ts",
+        "apps/api/src/__tests__/",
+        "apps/api/vitest.integration.config.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/kernel/feature.ts",
+        "apps/api/src/interfaces/http/better-auth.ts",
+        "apps/api/src/identity/assert-waitlist-allows-new-user.ts",
+        "apps/api/package.json",
+        "package.json"
+      ],
+      "envKeys": []
+    },
+
+    "orm-drizzle": {
+      "name": "orm-drizzle",
+      "tier": "paid",
+      "label": "ORM: Drizzle adapter",
+      "description": "Drizzle ORM track. Ships `apps/api/drizzle/` (drizzle-kit config + migrations) + generated Drizzle schema + `Drizzle*Repository` implementations + `DrizzleUnitOfWork`. Auth uses `@better-auth/drizzle-adapter`. The Prisma schema remains the source of truth — `prisma-generator-drizzle` emits the Drizzle schema on `npm run prisma:generate`. Migrations are managed with drizzle-kit (`npm run drizzle:generate`, `npm run drizzle:migrate`). Requires the parent `orm` feature.",
+      "defaultEnabled": false,
+      "requires": ["orm"],
+      "files": [
+        "apps/api/drizzle/",
+        "apps/api/src/db/drizzle/",
+        "apps/api/src/infrastructure/drizzle.ts",
+        "apps/api/src/infrastructure/drizzle-uow.ts",
+        "apps/api/src/identity/infrastructure/drizzle-user.repository.ts",
+        "apps/api/src/workspaces/infrastructure/drizzle-workspace.repository.ts",
+        "apps/api/src/workspaces/infrastructure/drizzle-workspace-member.repository.ts",
+        "apps/api/src/workspaces/infrastructure/drizzle-workspace-role.repository.ts",
+        "apps/api/src/workspaces/infrastructure/drizzle-invite.repository.ts",
+        "apps/api/src/teams/infrastructure/drizzle-team.repository.ts",
+        "apps/api/src/teams/infrastructure/drizzle-team-member.repository.ts",
+        "apps/api/src/teams/infrastructure/drizzle-team-role.repository.ts",
+        "apps/api/src/billing/infrastructure/drizzle-billing-customer.repository.ts",
+        "apps/api/src/billing/infrastructure/drizzle-subscription.repository.ts",
+        "apps/api/src/billing/infrastructure/drizzle-billing-event.repository.ts",
+        "apps/api/src/demo/infrastructure/drizzle-demo.repository.ts",
+        "apps/api/src/waitlist/infrastructure/drizzle-waitlist.repository.ts",
+        "apps/api/src/__tests__/",
+        "apps/api/vitest.integration.config.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/kernel/feature.ts",
+        "apps/api/src/interfaces/http/better-auth.ts",
+        "apps/api/src/identity/assert-waitlist-allows-new-user.ts",
+        "apps/api/prisma/schema.prisma",
+        "apps/api/package.json",
+        "package.json"
+      ],
+      "envKeys": []
+    },
+
+    "audit-log": {
+      "name": "audit-log",
+      "tier": "paid",
+      "label": "Audit log",
+      "description": "Append-only audit trail at two scopes. `AppAuditEntry` is the admin-facing global ledger for moderation-class events (bans, impersonations). `WorkspaceAuditEntry` is tenant-scoped, read by workspace and team admins, and optionally narrowed to a team via `teamId`. Entries are materialised by a post-commit projector listening to the domain event bus, so services never write audit rows directly. Adds `workspace.audit_log.view`, `workspace.audit_log.export`, and (when teams is on) `team.audit_log.view` permissions.",
+      "defaultEnabled": true,
+      "requires": [],
+      "files": [
+        "apps/api/src/audit/",
+        "apps/api/src/__tests__/audit.integration.test.ts",
+        ".agents/skills/add-audit-event/"
+      ],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/kernel/uow.ts",
+        "apps/api/src/infrastructure/prisma-uow.ts",
+        "apps/api/src/infrastructure/drizzle-uow.ts",
+        "apps/api/prisma/schema.prisma",
+        "apps/api/src/db/drizzle/schema.ts",
+        "packages/shared/src/permissions.ts"
+      ],
+      "envKeys": []
+    },
+
+    "cli-master": {
+      "name": "cli-master",
+      "tier": "paid",
+      "label": "CLI maintainer-only assets",
+      "description": "Skills and tooling that only make sense in the master Orbit template repo, not in scaffolded customer projects. Includes the `add-feature-fence`, `prisma-drizzle-sync`, and `add-paid-feature` skills — they document master-only concerns (fence markers, dual-ORM sync, declaring new paid features in features.json + PAID_FEATURES). Always stripped at scaffold time because `defaultEnabled` is false and the CLI never enables it. Pattern matches `demo`: tagged paid + default-off so both the private and public starter builds drop it.",
+      "defaultEnabled": false,
+      "requires": [],
+      "files": [
+        ".agents/skills/add-feature-fence/",
+        ".agents/skills/prisma-drizzle-sync/",
+        ".agents/skills/add-paid-feature/"
+      ],
+      "fencedRegions": [],
+      "envKeys": []
+    },
+
+    "audit-retention": {
+      "name": "audit-retention",
+      "tier": "paid",
+      "label": "Audit log retention (cron)",
+      "description": "Daily cron job that deletes audit entries older than `AUDIT_RETENTION_DAYS`. Requires both `audit-log` and `jobs` because the cleanup runs as a scheduled background job. Default retention is 90 days; set the env to 0 (or any non-positive value) to disable cleanup at runtime while keeping the schedule registered.",
+      "defaultEnabled": false,
+      "requires": ["audit-log", "jobs"],
+      "files": [
+        "apps/api/src/audit/jobs.ts",
+        "apps/api/src/audit/application/cleanup-audit.service.ts"
+      ],
+      "fencedRegions": [
+        "apps/api/src/audit/feature.ts",
+        "apps/api/src/jobs/feature.ts"
+      ],
+      "envKeys": ["AUDIT_RETENTION_DAYS"]
+    },
+
+    "auth-oauth": {
+      "name": "auth-oauth",
+      "tier": "free",
+      "label": "OAuth providers (Google + Apple)",
+      "description": "Social sign-in via better-auth's `socialProviders`. When off, only magic-link auth remains — simpler UX, smaller env surface. Can be re-added later by restoring the fenced blocks.",
+      "defaultEnabled": true,
+      "requires": [],
+      "files": [],
+      "fencedRegions": [
+        "apps/api/src/composition.ts",
+        "apps/api/src/interfaces/http/better-auth.ts",
+        "apps/web-tanstack/src/pages/login.tsx",
+        "apps/web-tanstack/src/lib/mutations.ts",
+        "apps/web-next/src/views/login.tsx",
+        "apps/web-next/src/lib/mutations.ts"
+      ],
+      "envKeys": [
+        "GOOGLE_CLIENT_ID",
+        "GOOGLE_CLIENT_SECRET",
+        "APPLE_CLIENT_ID",
+        "APPLE_CLIENT_SECRET"
+      ]
+    }
+  },
+
+  "strip": {
+    "notes": [
+      "When a feature is disabled, the CLI:",
+      "  1. Deletes the files/directories listed in `features.<name>.files`.",
+      "  2. Walks the repo once and removes every line between `// +feature:<name>` and `// -feature:<name>` (inclusive). The walk skips node_modules, .git, dist, .turbo, .next, etc.",
+      "  3. Removes the env keys listed in `features.<name>.envKeys` from every `apps/*/.env.example`.",
+      "The fence format is matched by a per-line regex (`^\\s*//\\s*\\+feature:<name>\\s*$` and equivalents for `/* */` and `{/* */}`). Nested DIFFERENT-name fences are allowed; nested same-name fences throw."
+    ]
+  }
+}

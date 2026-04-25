@@ -1,0 +1,17 @@
+# Point the Railway service at this file (repo-root path), e.g. /apps/api/railway.toml
+# https://docs.railway.com/deployments/monorepo
+
+[build]
+watchPatterns = [
+  "package.json",
+  "package-lock.json",
+  "turbo.json",
+  "apps/api/**",
+  "packages/shared/**",
+]
+
+buildCommand = "npm ci && npx turbo run prisma:generate --filter=@orbit/api && npx turbo run build --filter=@orbit/api"
+
+[deploy]
+preDeployCommand = "npm exec --workspace=@orbit/api prisma migrate deploy"
+startCommand = "npm run start --workspace=@orbit/api"

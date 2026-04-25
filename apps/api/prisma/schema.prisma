@@ -1,0 +1,212 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Identity (better-auth compatible)
+// ────────────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id
+  email         String    @unique
+  name          String
+  emailVerified Boolean   @default(false)
+  image         String?
+  avatarTone    Int       @default(0)
+  themeMode     String?
+  themePalette  String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  // +feature:auth-admin
+  role          String?
+  banned        Boolean   @default(false)
+  banReason     String?
+  banExpires    DateTime?
+  // -feature:auth-admin
+
+  sessions         Session[]
+  accounts         Account[]
+  workspacesOwned  Workspace[]       @relation("WorkspaceOwner")
+  workspaceMembers WorkspaceMember[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  // +feature:auth-admin
+  impersonatedBy String?
+  // -feature:auth-admin
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id
+  userId                String
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([identifier])
+  @@index([expiresAt])
+  @@map("verifications")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Workspace + workspace PBAC
+// ────────────────────────────────────────────────────────────────────────────
+
+model Workspace {
+  id        String   @id
+  slug      String   @unique
+  name      String
+  ownerId   String
+  createdAt DateTime @default(now())
+
+  owner   User              @relation("WorkspaceOwner", fields: [ownerId], references: [id], onDelete: Restrict)
+  members WorkspaceMember[]
+  invites WorkspaceInvite[]
+  roles   WorkspaceRole[]
+
+  @@map("workspaces")
+}
+
+/// Per-workspace custom role. Three system rows (systemKey =
+/// OWNER/ADMIN/MEMBER) are seeded with each workspace. System roles
+/// are not deletable; OWNER is additionally permission-locked.
+model WorkspaceRole {
+  id          String   @id
+  workspaceId String
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  systemKey   String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  permissions WorkspaceRolePermission[]
+  members     WorkspaceMember[]
+  invites     WorkspaceInvite[]
+
+  @@unique([workspaceId, name])
+  @@unique([workspaceId, systemKey])
+  @@index([workspaceId, sortOrder])
+  @@map("workspace_roles")
+}
+
+model WorkspaceRolePermission {
+  roleId     String
+  permission String
+
+  role WorkspaceRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permission])
+  @@map("workspace_role_permissions")
+}
+
+model WorkspaceMember {
+  id          String   @id
+  workspaceId String
+  userId      String
+  roleId      String
+  tone        Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role        WorkspaceRole     @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  invitesSent WorkspaceInvite[] @relation("InvitedBy")
+
+  @@unique([workspaceId, userId])
+  @@index([workspaceId])
+  @@index([roleId])
+  @@map("workspace_members")
+}
+
+model WorkspaceInvite {
+  id          String    @id
+  workspaceId String
+  email       String
+  token       String    @unique
+  invitedById String
+  roleId      String?
+  createdAt   DateTime  @default(now())
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy WorkspaceMember @relation("InvitedBy", fields: [invitedById], references: [id], onDelete: Cascade)
+  role      WorkspaceRole?  @relation(fields: [roleId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@index([email])
+  @@map("workspace_invites")
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Teams + team PBAC (second scope nested inside workspace)
+// ────────────────────────────────────────────────────────────────────────────
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// Billing — provider-agnostic primary model, Stripe (or others) sync into it.
+// ────────────────────────────────────────────────────────────────────────────
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// Audit log — two styles sharing one bounded context.
+//
+// AppAuditEntry is the app-wide log read by `user.role === "admin"` for
+// moderation-class events (bans, impersonations, global rollouts).
+//
+// WorkspaceAuditEntry is tenant-scoped and read by workspace/team admins;
+// `teamId` optionally narrows an entry to a specific team. Both tables
+// are append-only — entries are materialized by a post-commit projector
+// listening to the domain event bus.
+// ────────────────────────────────────────────────────────────────────────────
+
+
+// ────────────────────────────────────────────────────────────────────────────
+// Waitlist (optional beta gating)
+// ────────────────────────────────────────────────────────────────────────────
+
